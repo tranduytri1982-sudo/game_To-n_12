@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trò Chơi Câu Cá Toán Học 12</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        MathJax = {
+            tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap');
+        body { font-family: 'Nunito', sans-serif; user-select: none; overflow: hidden; background-color: #87CEEB;}
+        canvas { display: block; }
+        .modal-bg { background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px); }
+        .math-text { font-size: 1.25rem; }
+        .tf-grid { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; }
+        .fish-btn { transition: transform 0.1s; }
+        .fish-btn:active { transform: scale(0.95); }
+        .time-low { animation: pulseTime 1s infinite; color: #DC2626 !important; }
+        @keyframes pulseTime { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+    </style>
+</head>
+<body class="h-screen w-screen relative">
+
+    <!-- Canvas Game -->
+    <canvas id="gameCanvas" class="absolute top-0 left-0 w-full h-full"></canvas>
+
+    <!-- Start Modal -->
+    <div id="startModal" class="fixed inset-0 modal-bg flex items-center justify-center z-[60]">
+        <div class="bg-white p-10 rounded-3xl shadow-2xl text-center border-8 border-blue-400 max-w-md mx-4">
+            <h1 class="text-6xl mb-4">🎣</h1>
+            <h2 class="text-3xl font-black text-blue-600 mb-4">Câu Cá Toán Học 12</h2>
+            <p class="text-gray-700 text-lg mb-4">Hãy chọn thời gian chơi và trả lời đúng các câu hỏi Nguyên hàm - Tích phân để tích điểm nhé!</p>
+            <div class="mb-6 flex items-center justify-center gap-3">
+                <label for="timeInput" class="text-xl font-bold text-gray-800">Thời gian (mm:ss):</label>
+                <input type="text" id="timeInput" value="02:00" placeholder="02:00" maxlength="5" class="w-32 text-2xl font-black text-center text-blue-600 border-4 border-blue-300 rounded-xl focus:outline-none focus:border-blue-500 p-2">
+            </div>
+            <button id="startGameBtn" class="bg-gradient-to-r from-blue-500 to-blue-700 hover:from-blue-600 hover:to-blue-800 text-white font-bold py-4 px-10 rounded-full shadow-lg fish-btn text-xl w-full">
+                BẮT ĐẦU CHƠI
+            </button>
+        </div>
+    </div>
+
+    <!-- UI Overlay -->
+    <div class="absolute top-4 left-4 bg-white/90 px-6 py-2 rounded-full shadow-lg border-4 border-blue-400 z-10">
+        <h1 class="text-2xl font-black text-blue-600">Điểm: <span id="scoreDisplay" class="text-orange-500">0</span></h1>
+    </div>
+    
+    <!-- Timer Overlay -->
+    <div class="absolute top-4 left-1/2 transform -translate-x-1/2 bg-white/90 px-6 py-2 rounded-full shadow-lg border-4 border-blue-400 z-10">
+        <h1 class="text-2xl font-black text-blue-600 flex items-center gap-2">
+            ⏳ <span id="timerDisplay" class="text-red-500 font-mono tracking-wider">02:00</span>
+        </h1>
+    </div>
+
+    <div class="absolute top-4 right-4 bg-white/90 px-4 py-2 rounded-full shadow-lg border-4 border-blue-400 z-10">
+        <h1 class="text-lg font-bold text-blue-600">Cá còn lại: <span id="fishCountDisplay" class="text-orange-500">20</span></h1>
+    </div>
+
+    <div class="absolute bottom-4 w-full text-center pointer-events-none z-10">
+        <p class="text-white font-bold text-xl drop-shadow-md shadow-black">Nhấp chuột vào bất kỳ đâu trên biển để quăng cần câu!</p>
+    </div>
+
+    <!-- Question Modal -->
+    <div id="questionModal" class="fixed inset-0 modal-bg hidden flex items-center justify-center z-50">
+        <div class="bg-white p-8 rounded-3xl shadow-2xl max-w-2xl w-full mx-4 border-8 border-blue-300 relative transform transition-all">
+            <div id="pointsBadge" class="absolute -top-6 -right-6 bg-yellow-400 text-red-600 font-black text-2xl rounded-full w-20 h-20 flex items-center justify-center border-4 border-white shadow-lg transform rotate-12">
+                +10
+            </div>
+            <h2 id="qTypeHeader" class="text-2xl font-bold text-blue-500 mb-2 uppercase tracking-wider">Trắc nghiệm</h2>
+            <div id="questionContent" class="math-text text-gray-800 mb-6 bg-blue-50 p-4 rounded-xl border border-blue-100 min-h-[100px]">
+                <!-- Nội dung câu hỏi -->
+            </div>
+            
+            <div id="answerArea" class="space-y-4">
+                <!-- Khu vực nhập/chọn đáp án -->
+            </div>
+
+            <div class="mt-8 flex justify-between items-center">
+                <p id="feedbackMsg" class="font-bold text-lg hidden"></p>
+                <button id="submitBtn" class="bg-gradient-to-r from-green-400 to-green-600 hover:from-green-500 hover:to-green-700 text-white font-bold py-3 px-8 rounded-full shadow-lg fish-btn ml-auto block">
+                    Trả lời
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- End Game Modal -->
+    <div id="endModal" class="fixed inset-0 modal-bg hidden flex items-center justify-center z-50">
+        <div class="bg-white p-10 rounded-3xl shadow-2xl text-center border-8 border-yellow-400 max-w-md w-full mx-4">
+            <h1 id="endEmoji" class="text-5xl mb-4">🎉</h1>
+            <h2 id="endTitle" class="text-4xl font-black text-blue-600 mb-2">Chúc Mừng!</h2>
+            <p id="endSubtitle" class="text-xl text-gray-700 mb-6">Bạn đã câu hết đàn cá.</p>
+            <div class="bg-yellow-100 p-6 rounded-2xl mb-8">
+                <p class="text-gray-600 font-bold mb-1">Tổng điểm của bạn</p>
+                <p id="finalScore" class="text-6xl font-black text-red-500">0</p>
+            </div>
+            <button onclick="location.reload()" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-full shadow-lg fish-btn w-full text-xl">
+                Chơi Lại
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // --- ÂM THANH (AUDIO SYNTHESIS) ---
+        let audioCtx;
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        // Hàm phát một nốt nhạc cơ bản
+        function playTone(freq, type, duration, vol = 0.1) {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            
+            // Envelope để âm thanh mượt mà, không bị click
+            gain.gain.setValueAtTime(0, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(vol, audioCtx.currentTime + 0.05);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+            
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+        }
+
+        // Các hiệu ứng âm thanh cụ thể
+        function playCastSound() {
+            playTone(600, 'sine', 0.1, 0.1);
+            setTimeout(() => playTone(800, 'sine', 0.2, 0.1), 50);
+        }
+
+        function playCatchSound() {
+            playTone(1200, 'square', 0.1, 0.05);
+        }
+
+        function playCorrectSound() {
+            playTone(523.25, 'sine', 0.1, 0.1); // C5
+            setTimeout(() => playTone(659.25, 'sine', 0.1, 0.1), 100); // E5
+            setTimeout(() => playTone(783.99, 'sine', 0.2, 0.1), 200); // G5
+            setTimeout(() => playTone(1046.50, 'triangle', 0.4, 0.15), 300); // C6
+        }
+
+        function playWrongSound() {
+            playTone(300, 'sawtooth', 0.3, 0.1);
+            setTimeout(() => playTone(250, 'sawtooth', 0.4, 0.15), 200);
+        }
+
+        // Nhạc nền (BGM)
+        let bgmInterval = null;
+        const bgmNotes = [261.63, 329.63, 392.00, 523.25, 392.00, 329.63]; // C E G C G E
+        let bgmIdx = 0;
+
+        function startBGM() {
+            if (bgmInterval) return;
+            bgmInterval = setInterval(() => {
+                // Chỉ phát nhạc nền khi ở ngoài biển
+                if (gameState === 'playing' || gameState === 'casting' || gameState === 'reeling') {
+                    playTone(bgmNotes[bgmIdx], 'triangle', 0.3, 0.02); // Âm lượng siêu nhỏ làm nền
+                    bgmIdx = (bgmIdx + 1) % bgmNotes.length;
+                }
+            }, 350);
+        }
+
+        function stopBGM() {
+            if (bgmInterval) {
+                clearInterval(bgmInterval);
+                bgmInterval = null;
+            }
+        }
+
+
+        // --- TIME ĐẾM NGƯỢC ---
+        let totalTime = 120; // 2 phút = 120 giây
+        let timerInterval = null;
+        const timerDisplay = document.getElementById('timerDisplay');
+
+        function startTimer() {
+            if (timerInterval) return;
+            updateTimerUI();
+            timerInterval = setInterval(() => {
+                if (gameState !== 'gameover') {
+                    totalTime--;
+                    updateTimerUI();
+                    
+                    // Hiệu ứng nhấp nháy khi còn dưới 1 phút
+                    if (totalTime === 60) {
+                        timerDisplay.classList.add('time-low');
+                    }
+
+                    if (totalTime <= 0) {
+                        endGame(true); // true = hết giờ
+                    }
+                }
+            }, 1000);
+        }
+
+        function updateTimerUI() {
+            let m = Math.floor(totalTime / 60).toString().padStart(2, '0');
+            let s = (totalTime % 60).toString().padStart(2, '0');
+            timerDisplay.innerText = `${m}:${s}`;
+        }
+
+
+        // --- DATA CÂU HỎI ---
+        const questionsData = {"mcq": [{"q": "Nghiệm của phương trình $\\sin x=-1$ là", "options": ["$x=\\frac{\\pi}{2}+k2\\pi,k\\in \\mathbb{Z}$.", "$x=\\pi+k2\\pi,k\\in \\mathbb{Z}$.", "$x=- \\frac{\\pi}{2}+k2\\pi,k\\in \\mathbb{Z}$.", "$x=k2\\pi,k\\in \\mathbb{Z}$."], "correct": 2}, {"q": "Giải bất phương trình $\\log_{\\frac{3}{5}}(x+8)&gt;-3$.", "options": ["$x&gt;- \\frac{91}{27}$.", "$- 8\\le x&lt;- \\frac{91}{27}$.", "$x&gt;-8$.", "$- 8&lt;x&lt;- \\frac{91}{27}$."], "correct": 3}, {"q": "Trong không gian ${Oxyz}$, mặt cầu ${(S)}$ tâm ${I(0;6;-6)}$ và bán kính ${R}=2$ có phương trình là", "options": ["$x^{2}+\\left(y + 6\\right)^{2}+\\left(z - 6\\right)^{2}=2$.", "$x^{2}+\\left(y - 6\\right)^{2}+\\left(z + 6\\right)^{2}=4$.", "$x^{2}+\\left(y + 6\\right)^{2}+\\left(z - 6\\right)^{2}=4$.", "$x^{2}+\\left(y - 6\\right)^{2}+\\left(z + 6\\right)^{2}=16$."], "correct": 1}, {"q": "Tìm nguyên hàm $\\int \\dfrac{-2}{\\cos^2 x} dx$.", "options": ["$-2\\tan^2 x+C$.", "$-2\\cot^2 x+C$.", "$-2\\tan x+C$.", "$-2\\sin^2 x+C$."], "correct": 2}, {"q": "Trong không gian ${Oxyz}$, viết phương trình mặt phẳng ${(R)}$ đi qua điểm ${C(4;2;-7)}$ và nhận vectơ $\\vec{n}=(4;7;-3)$ làm véctơ pháp tuyến.", "options": ["$4 x + 7 y - 3 z - 46=0$.", "$4 x + 7 y - 3 z + 51=0$.", "$4 x + 7 y - 3 z - 51=0$.", "$4 x + 2 y - 7 z - 51=0$."], "correct": 2}, {"q": "Đồ thị hàm số $y=\\frac{- 3 x - 4}{5 - 5 x}$ có đường tiệm cận ngang là", "options": ["$x=\\frac{3}{5}$.", "$y=- \\frac{3}{5}$.", "$y=\\frac{3}{5}$.", "$y=- \\frac{4}{5}$."], "correct": 2}, {"q": "Tìm giá trị nhỏ nhất của hàm số $\\displaystyle y=\\frac{x^{3}}{3} - \\frac{x^{2}}{2} - 6 x - 4$ trên đoạn ${[-3;5]}$.", "options": ["$m=\\frac{10}{3}$.", "$m=14$.", "$m=- \\frac{35}{2}$.", "$m=- \\frac{28}{3}$."], "correct": 2}, {"q": "Tính diện tích hình phẳng giới hạn bởi đồ thị các hàm số $y=- 13 x^{2} + 35 x - 29,y=- 3 x^{2} - 5 x + 1$ và các đường thẳng $x=1,x=3$.", "options": ["${\\frac{500}{3}}$.", "${\\frac{20}{3}}$.", "${\\frac{40}{3}}$.", "${180}$."], "correct": 2}, {"q": "Cho hình phẳng giới hạn bởi đồ thị hàm số $y=- 6 x^{2} + 48 x - 90$, trục hoành và các đường thẳng $x=3,x=5$. Tính thể tích khối tròn xoay tạo thành khi cho hình phẳng đó quay quanh trục ${Ox}.$", "options": ["${ 6000\\pi}$.", "${ \\frac{202}{5}}\\pi$.", "${ \\frac{192}{5}\\pi}$.", "${ \\frac{648}{5}\\pi}$."], "correct": 2}, {"q": "Cho hai vectơ $\\overrightarrow{a}$ và $\\overrightarrow{v}$ thỏa mãn $|\\overrightarrow{a}|=7,|\\overrightarrow{v}|=1$ và góc giữa hai vectơ bằng ${135}^\\circ$.Tính tích vô hướng $\\overrightarrow{a}.\\overrightarrow{v}$.", "options": ["${-7}$.", "${7}$.", "${\\frac{7 \\sqrt{2}}{2}}$.", "${- \\frac{7 \\sqrt{2}}{2}}$."], "correct": 3}, {"q": "Cho cấp số cộng $(u_n)$ có $u_1=-1$ và $u_{12}=76$. Công sai ${d}$ của cấp số cộng đã cho là", "options": ["${75}$.", "${77}$.", "${-76}$.", "${7}$."], "correct": 3}, {"q": "Cho mẫu số liệu ghép nhóm về cân nặng (đơn vị:kg) và số người như bảng sau. Tìm tứ phân vị thứ nhất ${Q_1}$ của mẫu số liệu ghép nhóm đã cho.<div class=\"mt-3\"><img src=\"data:image/png;base64,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\" style=\"max-width:100%;border-radius:12px;margin:auto;\"></div>", "options": ["${59,70}$.", "${48,60}$.", "${42,65}$.", "${41,65}$."], "correct": 3}], "sa": [], "tf": []};
+
+        // --- CẤU HÌNH GAME ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let GAME_WIDTH = window.innerWidth;
+        let GAME_HEIGHT = window.innerHeight;
+        canvas.width = GAME_WIDTH;
+        canvas.height = GAME_HEIGHT;
+
+        // Xử lý resize
+        window.addEventListener('resize', () => {
+            GAME_WIDTH = window.innerWidth;
+            GAME_HEIGHT = window.innerHeight;
+            canvas.width = GAME_WIDTH;
+            canvas.height = GAME_HEIGHT;
+            boat.x = GAME_WIDTH * 0.3; // Đẩy thuyền sang bên trái (30% chiều rộng)
+        });
+
+        // Định nghĩa các loại cá
+        const FISH_TYPES = [
+            { type: 'mcq', emoji: '🐟', size: 35, points: 10, name: 'Cá Cơm' },
+            { type: 'mcq', emoji: '🐠', size: 40, points: 10, name: 'Cá Hồi' },
+            { type: 'sa', emoji: '🐡', size: 55, points: 15, name: 'Cá Ngừ' },
+            { type: 'sa', emoji: '🦑', size: 50, points: 15, name: 'Mực' },
+            { type: 'tf', emoji: '🦈', size: 80, points: 20, name: 'Cá Mập' },
+            { type: 'tf', emoji: '🐬', size: 75, points: 20, name: 'Cá Heo' }
+        ];
+
+        let score = 0;
+        let fishes = [];
+        let gameState = 'init'; // init, playing, casting, reeling, question, gameover
+        let currentFish = null;
+
+        // Thuyền và người
+        const boat = {
+            x: GAME_WIDTH * 0.3, // Đẩy thuyền sang bên trái (30% chiều rộng)
+            y: 90,
+            width: 120,
+            height: 60
+        };
+
+        // Lưỡi câu
+        const hook = {
+            x: boat.x,
+            y: boat.y,
+            targetX: 0,
+            targetY: 0,
+            speed: 15
+        };
+
+        // Xử lý tự động định dạng ô nhập thời gian theo chuẩn mm:ss
+        const timeInput = document.getElementById('timeInput');
+        timeInput.addEventListener('input', (e) => {
+            let v = e.target.value.replace(/[^0-9]/g, ''); // Xóa tất cả các ký tự không phải là số
+            if (v.length > 4) v = v.slice(0, 4);
+            if (v.length > 2) {
+                e.target.value = v.slice(0, 2) + ':' + v.slice(2);
+            } else {
+                e.target.value = v;
+            }
+        });
+
+        // Start Game Button Logic
+        document.getElementById('startGameBtn').addEventListener('click', () => {
+            initAudio();
+            
+            // Lấy và tính toán thời gian từ ô nhập dạng mm:ss
+            let timeStr = document.getElementById('timeInput').value;
+            let parts = timeStr.split(':');
+            let m = parseInt(parts[0]) || 0;
+            let s = parseInt(parts[1]) || 0;
+            totalTime = m * 60 + s;
+            
+            // Nếu người dùng nhập sai hoặc bằng 0, mặc định lấy 2 phút
+            if (isNaN(totalTime) || totalTime <= 0) {
+                totalTime = 120;
+            }
+            
+            document.getElementById('startModal').classList.add('hidden');
+            gameState = 'playing';
+            startBGM();
+            startTimer();
+            initFishes();
+            requestAnimationFrame(loop);
+        });
+
+        // Khởi tạo đàn cá 20 con
+        function initFishes() {
+            fishes = [];
+            for (let i = 0; i < 20; i++) {
+                let rType;
+                if (i < 8) rType = FISH_TYPES.filter(f => f.type === 'mcq')[Math.floor(Math.random() * 2)];
+                else if (i < 14) rType = FISH_TYPES.filter(f => f.type === 'sa')[Math.floor(Math.random() * 2)];
+                else rType = FISH_TYPES.filter(f => f.type === 'tf')[Math.floor(Math.random() * 2)];
+
+                let qPool = questionsData[rType.type];
+                let randomQ = qPool[Math.floor(Math.random() * qPool.length)];
+
+                fishes.push({
+                    id: i,
+                    x: Math.random() * GAME_WIDTH,
+                    y: Math.random() * (GAME_HEIGHT - 250) + 200,
+                    vx: (Math.random() * 1.5 + 0.5) * (Math.random() > 0.5 ? 1 : -1),
+                    vy: (Math.random() - 0.5) * 0.5,
+                    ...rType,
+                    question: randomQ,
+                    isCaught: false
+                });
+            }
+            updateFishCount();
+        }
+
+        function updateFishCount() {
+            document.getElementById('fishCountDisplay').innerText = fishes.length;
+        }
+
+        // VẼ BACKGROUND
+        function drawBackground() {
+            let skyGrad = ctx.createLinearGradient(0, 0, 0, 150);
+            skyGrad.addColorStop(0, "#87CEEB");
+            skyGrad.addColorStop(1, "#E0F6FF");
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, 0, GAME_WIDTH, 150);
+
+            ctx.fillStyle = "#FFD700";
+            ctx.beginPath();
+            ctx.arc(100, 80, 40, 0, Math.PI * 2);
+            ctx.fill();
+
+            let seaGrad = ctx.createLinearGradient(0, 150, 0, GAME_HEIGHT);
+            seaGrad.addColorStop(0, "#006994");
+            seaGrad.addColorStop(1, "#001e36");
+            ctx.fillStyle = seaGrad;
+            ctx.fillRect(0, 150, GAME_WIDTH, GAME_HEIGHT - 150);
+            
+            ctx.strokeStyle = "rgba(255,255,255,0.2)";
+            ctx.lineWidth = 2;
+            for(let i=0; i<10; i++) {
+                ctx.beginPath();
+                ctx.moveTo((Math.sin(Date.now() / 1000 + i) * 20) + (i * GAME_WIDTH/10), 150 + Math.random()*(GAME_HEIGHT-150));
+                ctx.lineTo((Math.sin(Date.now() / 1000 + i) * 20) + (i * GAME_WIDTH/10) + 50, 150 + Math.random()*(GAME_HEIGHT-150));
+                ctx.stroke();
+            }
+        }
+
+        // VẼ THUYỀN VÀ NGƯỜI
+        function drawBoat() {
+            ctx.save();
+            ctx.translate(boat.x, boat.y);
+            ctx.font = "80px Arial";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText("🚣", 0, -20);
+            ctx.restore();
+        }
+
+        // VẼ CÁ
+        function drawFishes() {
+            fishes.forEach(fish => {
+                ctx.save();
+                ctx.translate(fish.x, fish.y);
+                
+                if (fish.vx < 0 && !fish.isCaught) ctx.scale(-1, 1);
+                else if (fish.isCaught) ctx.rotate(-Math.PI / 2);
+
+                ctx.font = `${fish.size}px Arial`;
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText(fish.emoji, 0, 0);
+                ctx.restore();
+
+                ctx.save();
+                ctx.translate(fish.x, fish.y - fish.size/2 - 10);
+                ctx.beginPath();
+                ctx.arc(0, 0, 14, 0, Math.PI * 2);
+                ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+                ctx.fill();
+                ctx.strokeStyle = "#FF8C00";
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                ctx.fillStyle = "#FF4500";
+                ctx.font = "bold 14px Nunito";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText(fish.points, 0, 1);
+                ctx.restore();
+            });
+        }
+
+        // VẼ DÂY CÂU
+        function drawHook() {
+            if (gameState === 'casting' || gameState === 'reeling') {
+                ctx.beginPath();
+                ctx.moveTo(boat.x + 30, boat.y - 40); 
+                ctx.lineTo(hook.x, hook.y);
+                ctx.strokeStyle = "rgba(255, 255, 255, 0.8)";
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.arc(hook.x, hook.y, 4, 0, Math.PI * 2);
+                ctx.fillStyle = "#A9A9A9";
+                ctx.fill();
+            }
+        }
+
+        // UPDATE LOGIC GAME
+        function update() {
+            if (gameState === 'playing') {
+                fishes.forEach(fish => {
+                    fish.x += fish.vx;
+                    fish.y += fish.vy;
+                    if (fish.x > GAME_WIDTH + 50) fish.x = -50;
+                    if (fish.x < -50) fish.x = GAME_WIDTH + 50;
+                    if (fish.y < 180) { fish.y = 180; fish.vy *= -1; }
+                    if (fish.y > GAME_HEIGHT - 50) { fish.y = GAME_HEIGHT - 50; fish.vy *= -1; }
+                });
+            } else if (gameState === 'casting') {
+                let dx = hook.targetX - hook.x;
+                let dy = hook.targetY - hook.y;
+                let dist = Math.sqrt(dx*dx + dy*dy);
+                
+                if (dist < hook.speed) {
+                    hook.x = hook.targetX;
+                    hook.y = hook.targetY;
+                    gameState = 'reeling';
+                    currentFish.isCaught = true;
+                    playCatchSound(); // Âm thanh cắn câu
+                } else {
+                    hook.x += (dx / dist) * hook.speed;
+                    hook.y += (dy / dist) * hook.speed;
+                }
+            } else if (gameState === 'reeling') {
+                let dx = boat.x + 30 - hook.x;
+                let dy = boat.y - 40 - hook.y;
+                let dist = Math.sqrt(dx*dx + dy*dy);
+                
+                if (dist < hook.speed) {
+                    gameState = 'question';
+                    showQuestionModal();
+                } else {
+                    hook.x += (dx / dist) * hook.speed;
+                    hook.y += (dy / dist) * hook.speed;
+                    currentFish.x = hook.x;
+                    currentFish.y = hook.y + 20; 
+                }
+            }
+        }
+
+        // MAIN LOOP
+        function loop() {
+            if(gameState !== 'init'){
+                ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+                drawBackground();
+                drawBoat();
+                drawFishes();
+                drawHook();
+                update();
+            }
+            if(gameState !== 'gameover' || totalTime <= 0) {
+                requestAnimationFrame(loop);
+            }
+        }
+
+        // CLICK XỬ LÝ QUĂNG CẦN
+        canvas.addEventListener('mousedown', () => {
+            if (gameState === 'playing' && fishes.length > 0) {
+                let rIndex = Math.floor(Math.random() * fishes.length);
+                currentFish = fishes[rIndex];
+                
+                hook.x = boat.x + 30;
+                hook.y = boat.y - 40;
+                hook.targetX = currentFish.x;
+                hook.targetY = currentFish.y;
+                
+                gameState = 'casting';
+                playCastSound(); // Phát âm thanh quăng dây
+            }
+        });
+
+        // --- UI & LOGIC CÂU HỎI ---
+        const modal = document.getElementById('questionModal');
+        const qContent = document.getElementById('questionContent');
+        const ansArea = document.getElementById('answerArea');
+        const pointsBadge = document.getElementById('pointsBadge');
+        const submitBtn = document.getElementById('submitBtn');
+        const feedbackMsg = document.getElementById('feedbackMsg');
+        const qTypeHeader = document.getElementById('qTypeHeader');
+
+        function showQuestionModal() {
+            let q = currentFish.question;
+            pointsBadge.innerText = `+${currentFish.points}`;
+            feedbackMsg.classList.add('hidden');
+            submitBtn.style.display = 'block';
+            
+            if (currentFish.type === 'mcq') {
+                qTypeHeader.innerText = "Trắc Nghiệm (Chọn 1 đáp án)";
+                qTypeHeader.className = "text-xl font-bold text-blue-600 mb-2 uppercase tracking-wider";
+                qContent.innerHTML = q.q;
+                
+                let html = '<div class="grid grid-cols-1 md:grid-cols-2 gap-4">';
+                q.options.forEach((opt, idx) => {
+                    html += `
+                        <label class="flex items-center p-4 border-2 border-gray-200 rounded-xl cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-colors">
+                            <input type="radio" name="mcqAns" value="${idx}" class="w-5 h-5 text-blue-600">
+                            <span class="ml-3 math-text">${opt}</span>
+                        </label>
+                    `;
+                });
+                html += '</div>';
+                ansArea.innerHTML = html;
+            } 
+            else if (currentFish.type === 'sa') {
+                qTypeHeader.innerText = "Trả Lời Ngắn (Nhập kết quả)";
+                qTypeHeader.className = "text-xl font-bold text-purple-600 mb-2 uppercase tracking-wider";
+                qContent.innerHTML = q.q;
+                
+                ansArea.innerHTML = `
+                    <input type="text" id="saInput" placeholder="Nhập câu trả lời của bạn vào đây..." 
+                        class="w-full border-2 border-gray-300 p-4 rounded-xl text-xl font-bold text-center focus:border-purple-500 focus:outline-none shadow-inner" autocomplete="off">
+                `;
+                setTimeout(() => document.getElementById('saInput').focus(), 100);
+            }
+            else if (currentFish.type === 'tf') {
+                qTypeHeader.innerText = "Đúng/Sai (Chọn cho từng ý)";
+                qTypeHeader.className = "text-xl font-bold text-red-600 mb-2 uppercase tracking-wider";
+                qContent.innerHTML = q.q;
+                
+                let html = '<div class="space-y-3 bg-gray-50 p-4 rounded-xl border border-gray-200">';
+                html += `
+                    <div class="tf-grid font-bold text-gray-500 border-b pb-2 mb-2">
+                        <div>Mệnh đề</div>
+                        <div class="text-center w-12 text-green-600">Đúng</div>
+                        <div class="text-center w-12 text-red-600">Sai</div>
+                    </div>
+                `;
+                q.statements.forEach((stmt, idx) => {
+                    html += `
+                        <div class="tf-grid items-center py-2 border-b border-gray-100 last:border-0">
+                            <div class="math-text pr-4">${stmt.text}</div>
+                            <input type="radio" name="tf_${idx}" value="true" class="w-6 h-6 mx-auto accent-green-600 cursor-pointer">
+                            <input type="radio" name="tf_${idx}" value="false" class="w-6 h-6 mx-auto accent-red-600 cursor-pointer">
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                ansArea.innerHTML = html;
+            }
+
+            modal.classList.remove('hidden');
+            
+            if(window.MathJax && MathJax.typesetPromise) {
+                MathJax.typesetPromise([document.getElementById('questionModal')]).catch((err) => console.log(err.message));
+            }
+        }
+
+        // Xử lý nút Trả lời
+        submitBtn.onclick = () => {
+            let isCorrect = false;
+            let q = currentFish.question;
+
+            if (currentFish.type === 'mcq') {
+                let selected = document.querySelector('input[name="mcqAns"]:checked');
+                if (!selected) { alert("Vui lòng chọn 1 đáp án!"); return; }
+                if (parseInt(selected.value) === q.correct) isCorrect = true;
+            } 
+            else if (currentFish.type === 'sa') {
+                let val = document.getElementById('saInput').value.trim().replace(/\s/g, ''); 
+                if (val === "") { alert("Vui lòng nhập câu trả lời!"); return; }
+                if (val.toLowerCase() === q.correct.toLowerCase()) isCorrect = true;
+            }
+            else if (currentFish.type === 'tf') {
+                let allChecked = true;
+                let allCorrect = true;
+                for (let i = 0; i < 4; i++) {
+                    let sel = document.querySelector(`input[name="tf_${i}"]:checked`);
+                    if (!sel) { allChecked = false; break; }
+                    let boolVal = sel.value === "true";
+                    if (boolVal !== q.statements[i].correct) allCorrect = false;
+                }
+                if (!allChecked) { alert("Vui lòng chọn Đúng/Sai cho tất cả 4 mệnh đề!"); return; }
+                if (allCorrect) isCorrect = true;
+            }
+
+            submitBtn.style.display = 'none';
+            feedbackMsg.classList.remove('hidden');
+
+            if (isCorrect) {
+                playCorrectSound(); // Âm thanh Trả lời đúng
+                feedbackMsg.innerHTML = `🎉 Tuyệt vời! Chính xác. Cộng ${currentFish.points} điểm.`;
+                feedbackMsg.className = "font-bold text-xl text-green-600 block";
+                score += currentFish.points;
+                document.getElementById('scoreDisplay').innerText = score;
+            } else {
+                playWrongSound(); // Âm thanh Trả lời sai
+                feedbackMsg.innerHTML = `😢 Rất tiếc! Câu trả lời chưa đúng. Con cá đã chạy thoát.`;
+                feedbackMsg.className = "font-bold text-xl text-red-600 block";
+            }
+
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                fishes = fishes.filter(f => f.id !== currentFish.id);
+                updateFishCount();
+
+                if (fishes.length === 0) {
+                    endGame(false); // Xong hết cá
+                } else {
+                    gameState = 'playing';
+                }
+            }, 2500);
+        };
+
+        function endGame(isTimeOut = false) {
+            gameState = 'gameover';
+            clearInterval(timerInterval);
+            stopBGM(); // Tắt nhạc nền
+            
+            document.getElementById('finalScore').innerText = score;
+            
+            if (isTimeOut) {
+                document.getElementById('endEmoji').innerText = "⏰";
+                document.getElementById('endTitle').innerText = "Hết Giờ!";
+                document.getElementById('endTitle').classList.replace("text-blue-600", "text-red-600");
+                document.getElementById('endSubtitle').innerText = "Rất tiếc thời gian đã kết thúc.";
+                playWrongSound(); 
+            } else {
+                document.getElementById('endEmoji').innerText = "🎉";
+                document.getElementById('endTitle').innerText = "Chúc Mừng!";
+                document.getElementById('endSubtitle').innerText = "Bạn đã câu hết đàn cá.";
+                playCorrectSound();
+            }
+
+            document.getElementById('endModal').classList.remove('hidden');
+        }
+
+    </script>
+</body>
+</html>
